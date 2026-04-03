@@ -57,6 +57,7 @@ def explain(
         "code_context": code,
         "file_path": fpath,
         "response": "",
+        "escalation_reason": "",
     }
     _run(state)
 
@@ -83,6 +84,7 @@ def ask(
         "code_context": code,
         "file_path": fpath,
         "response": "",
+        "escalation_reason": "",
     }
     _run(state)
 

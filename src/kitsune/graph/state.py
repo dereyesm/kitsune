@@ -9,3 +9,4 @@ class KitsuneState(TypedDict):
     code_context: str
     file_path: str
     response: str
+    escalation_reason: str

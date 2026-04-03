@@ -20,6 +20,7 @@ def test_explain_flow(mock_invoke):
         "code_context": "def hello(): pass",
         "file_path": "test.py",
         "response": "",
+        "escalation_reason": "",
     }
     result = graph.invoke(state)
     assert result["response"] == "mocked explanation"
@@ -36,22 +37,24 @@ def test_ask_flow(mock_invoke):
         "code_context": "for i in range(n): pass",
         "file_path": "test.py",
         "response": "",
+        "escalation_reason": "",
     }
     result = graph.invoke(state)
     assert result["response"] == "mocked answer"
     assert result["task_type"] == "ask"
 
 
-def test_fallback_flow():
+def test_fallback_flow_security():
     graph = build_graph()
-    long_code = "x = 1\n" * 500
     state: KitsuneState = {
-        "user_input": "design a microservice architecture",
+        "user_input": "check for SQL injection vulnerabilities",
         "task_type": "ask",
-        "code_context": long_code,
-        "file_path": "big.py",
+        "code_context": "query = f'SELECT * FROM users WHERE id={user_id}'",
+        "file_path": "db.py",
         "response": "",
+        "escalation_reason": "",
     }
     result = graph.invoke(state)
-    assert "exceeds" in result["response"].lower() or "Claude" in result["response"]
+    assert "security" in result["escalation_reason"]
+    assert "Claude" in result["response"]
     assert result["task_type"] == "fallback"
