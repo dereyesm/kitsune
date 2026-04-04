@@ -1,8 +1,8 @@
-# Kitsune — Local Code Assistant
+# Kitsune — Local AI Gateway
 
 ## Overview
-CLI + MCP server + HERMES node that uses SLMs (Qwen2.5-Coder-1.5B) via MLX for local code tasks.
-Repo: https://github.com/dereyesm/kitsune | MIT License
+CLI + MCP server + HERMES node. Works with any OpenAI-compatible backend — SLMs (Qwen 1.5B via MLX/Ollama) or cloud LLMs (OpenAI, Anthropic, etc.).
+Repo: https://github.com/tinkuy-dev/kitsune | MIT License
 
 ## Stack
 - **Inference**: MLX (Mac) / Ollama (Linux/Win) via OpenAI-compatible API
