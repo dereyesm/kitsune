@@ -26,7 +26,7 @@ from kitsune.rag.bm25_backend import BM25Backend
 
 mcp = FastMCP(
     "kitsune",
-    description="Local code assistant — explain, ask, search code using SLMs",
+    instructions="Local code assistant — explain, ask, search code using SLMs",
 )
 
 _rag = BM25Backend()
