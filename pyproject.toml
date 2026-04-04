@@ -27,6 +27,9 @@ rag = [
 fallback = [
     "anthropic>=0.50",
 ]
+mcp = [
+    "fastmcp>=2.0",
+]
 
 [project.scripts]
 kit = "kitsune.cli:app"
