@@ -100,12 +100,14 @@ class TestEnvVarPrecedence:
     def test_tier_wins_over_default(self, monkeypatch):
         monkeypatch.setenv("KITSUNE_MODEL_TIER", "medium")
         s = _reload()
-        assert "Qwen3.5-4B" in s.model_name
+        # Backend-agnostic: Mac=Qwen3.5-4B-Instruct, Linux=qwen3.5:4b
+        name = s.model_name.lower()
+        assert "qwen3.5" in name and "4b" in name
 
     def test_default_when_nothing_is_set(self):
         s = _reload()
         assert s.model_tier == "small"
-        assert "Qwen2.5-Coder" in s.model_name
+        assert "qwen2.5-coder" in s.model_name.lower()
         assert s.privacy_level == "local"
 
     def test_empty_provider_treated_as_unset(self, monkeypatch):

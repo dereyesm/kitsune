@@ -88,7 +88,9 @@ class TestPersonaIndieDevMac:
 
     def test_J1_default_is_100_percent_local(self):
         s = _fresh_settings()
-        assert s.backend == "mlx"
+        # Backend depends on host OS (mlx on Darwin, ollama elsewhere) — both
+        # are local. The privacy contract does not depend on the backend.
+        assert s.backend in ("mlx", "ollama")
         assert s.privacy_level == "local"
         assert s.provider_name == ""  # no override
         assert s.api_key == "not-needed"

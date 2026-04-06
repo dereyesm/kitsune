@@ -143,6 +143,7 @@ class TestMCPServerContract:
     all depend on that number. Any change to the surface must be intentional."""
 
     def test_mcp_server_exposes_exactly_four_tools(self):
+        pytest.importorskip("fastmcp", reason="optional dep group 'mcp'")
         import kitsune.mcp_server as mcp_module
 
         tools = getattr(mcp_module.mcp, "_tool_manager", None)
@@ -168,6 +169,7 @@ class TestMCPServerContract:
                 assert expected in tool_names
 
     def test_mcp_server_has_name_and_instructions(self):
+        pytest.importorskip("fastmcp", reason="optional dep group 'mcp'")
         import kitsune.mcp_server as mcp_module
 
         assert mcp_module.mcp is not None

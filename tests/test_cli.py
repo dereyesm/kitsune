@@ -83,7 +83,9 @@ def test_status_shows_medium_tier(runner, monkeypatch):
         result = runner.invoke(kitsune.cli.app, ["status"])
     assert result.exit_code == 0
     assert "medium" in result.output
-    assert "Qwen3.5-4B" in result.output
+    # Backend-agnostic: Mac echoes "Qwen3.5-4B-Instruct-4bit", Linux echoes "qwen3.5:4b"
+    output_lower = result.output.lower()
+    assert "qwen3.5" in output_lower and "4b" in output_lower
 
 
 def test_status_shows_openrouter_ready_when_key_set(runner, monkeypatch):

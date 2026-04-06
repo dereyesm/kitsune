@@ -112,20 +112,25 @@ def test_default_settings_are_local():
     assert s.provider_name == ""
     assert s.privacy_level == "local"
     assert s.api_key == "not-needed"
-    assert "Qwen2.5-Coder-1.5B" in s.model_name
+    # Backend-agnostic: Mac uses MLX (mlx-community/Qwen2.5-Coder-1.5B...),
+    # Linux/Win use Ollama (qwen2.5-coder:1.5b). Match the family + size.
+    name = s.model_name.lower()
+    assert "qwen2.5" in name and "coder" in name and "1.5b" in name
 
 
 def test_model_tier_medium_picks_qwen35_4b(monkeypatch):
     monkeypatch.setenv("KITSUNE_MODEL_TIER", "medium")
     s = _fresh_settings()
     assert s.model_tier == "medium"
-    assert "Qwen3.5-4B" in s.model_name
+    name = s.model_name.lower()
+    assert "qwen3.5" in name and "4b" in name
 
 
 def test_model_tier_large_picks_qwen35_9b(monkeypatch):
     monkeypatch.setenv("KITSUNE_MODEL_TIER", "large")
     s = _fresh_settings()
-    assert "Qwen3.5-9B" in s.model_name
+    name = s.model_name.lower()
+    assert "qwen3.5" in name and "9b" in name
 
 
 def test_explicit_model_name_beats_tier(monkeypatch):

@@ -181,8 +181,9 @@ class TestConfigReload:
         large_name = config_module.settings.model_name
 
         assert small_name != large_name
-        assert "1.5B" in small_name
-        assert "9B" in large_name
+        # Backend-agnostic: case-insensitive substring (Mac=1.5B, Linux=1.5b)
+        assert "1.5b" in small_name.lower()
+        assert "9b" in large_name.lower()
 
     def test_provider_change_between_reloads_takes_effect(self, monkeypatch):
         # Start local
