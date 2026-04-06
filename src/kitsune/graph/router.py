@@ -1,8 +1,10 @@
 """Multi-gate task router with escalation logic."""
 
+import os
 import re
 
 from kitsune.graph.state import KitsuneState
+from kitsune.providers import PROVIDERS, PrivacyLevel
 
 EXPLAIN_PATTERNS = re.compile(
     r"\b(explain|what does|how does|what is|describe|walk me through)\b", re.IGNORECASE
@@ -52,6 +54,49 @@ def _check_escalation(user_input: str, code_context: str) -> str | None:
         return f"input too large ({total_tokens} est. tokens > {TOKEN_THRESHOLD} threshold)"
 
     return None
+
+
+def suggest_tiers() -> str:
+    """Return a Markdown bullet list of escalation tiers available RIGHT NOW.
+
+    Detects which provider tiers the user can actually reach based on the env
+    vars currently set. Shown by ``fallback_node`` when a task exceeds the
+    local model's capability. This is the "show of power" moment — the user
+    sees every free and paid tier they could escalate to without leaving the
+    terminal.
+    """
+    lines: list[str] = [
+        "- **Local tier up**: `export KITSUNE_MODEL_TIER=medium` "
+        "(Qwen3.5-4B, ~5GB RAM) or `large` (Qwen3.5-9B, ~10GB RAM), "
+        "then restart your model server."
+    ]
+
+    # Free remote — highlight each provider with its free model list.
+    for prov in PROVIDERS.values():
+        if prov.privacy_level != PrivacyLevel.REMOTE_FREE:
+            continue
+        has_key = bool(prov.env_key_name and os.environ.get(prov.env_key_name))
+        marker = "✅ READY" if has_key else "⚙ set key to enable"
+        models = ", ".join(label for _, label in prov.free_models[:3]) or prov.default_model
+        lines.append(
+            f"- **Free remote — {prov.name}** [{marker}]: "
+            f"`export KITSUNE_PROVIDER={prov.name}` "
+            f"(requires `{prov.env_key_name}`). Models: {models}."
+        )
+
+    # Paid remote — shown last as the "last resort" option.
+    for prov in PROVIDERS.values():
+        if prov.privacy_level != PrivacyLevel.REMOTE_PAID:
+            continue
+        has_key = bool(prov.env_key_name and os.environ.get(prov.env_key_name))
+        marker = "✅ READY" if has_key else "⚙ set key to enable"
+        lines.append(
+            f"- **Paid fallback — {prov.name}** [{marker}]: "
+            f"`export KITSUNE_PROVIDER={prov.name}` "
+            f"(requires `{prov.env_key_name}`). Use as last resort."
+        )
+
+    return "\n".join(lines)
 
 
 def route(state: KitsuneState) -> KitsuneState:

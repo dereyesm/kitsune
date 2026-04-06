@@ -8,11 +8,30 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from kitsune.consent import ConsentDenied, ensure_consent
 from kitsune.graph.build import app as graph_app
 from kitsune.graph.state import KitsuneState
 
 cli = typer.Typer(name="kit", help="Kitsune — local code assistant with SLMs", no_args_is_help=True)
 console = Console()
+
+
+def _gate_consent() -> None:
+    """Enforce the remote-provider consent flow before any inference call."""
+    from kitsune.config import settings
+
+    if settings.privacy_level == "local":
+        return
+    try:
+        ensure_consent(
+            provider_name=settings.provider_name or "remote",
+            base_url=settings.base_url,
+            privacy_level=settings.privacy_level,
+            console=console,
+        )
+    except ConsentDenied as err:
+        console.print(f"[red]{err}[/red]")
+        raise typer.Exit(2) from err
 
 
 def _read_file(path: str) -> tuple[str, str]:
@@ -30,6 +49,7 @@ def _read_stdin() -> str:
 
 
 def _run(state: KitsuneState):
+    _gate_consent()
     result = graph_app.invoke(state)
     response = result["response"]
     task = result.get("task_type", "")
@@ -97,26 +117,60 @@ def status():
     import httpx
 
     from kitsune.config import settings
+    from kitsune.providers import PROVIDERS, PrivacyLevel
 
     console.print(f"[bold]Backend:[/bold] {settings.backend} ({platform.system()})")
+    console.print(f"[bold]Tier:[/bold] {settings.model_tier}")
     console.print(f"[bold]Model:[/bold] {settings.model_name}")
     console.print(f"[bold]Server:[/bold] {settings.base_url}")
+
+    # Privacy / provider indicator
+    if settings.provider_name:
+        colour = {
+            "local": "green",
+            "remote_free": "yellow",
+            "remote_paid": "magenta",
+        }.get(settings.privacy_level, "white")
+        console.print(
+            f"[bold]Provider:[/bold] {settings.provider_name} "
+            f"[{colour}]({settings.privacy_level})[/{colour}]"
+        )
+    else:
+        console.print("[bold]Provider:[/bold] [green]local (no override)[/green]")
 
     try:
         r = httpx.get(f"{settings.base_url}/models", timeout=3)
         models = [m["id"] for m in r.json().get("data", [])]
         if models:
-            console.print(f"[bold]Available models:[/bold] {', '.join(models)}")
+            console.print(f"[bold]Available models:[/bold] {', '.join(models[:8])}")
         else:
             console.print("[yellow]No models loaded[/yellow]")
-    except httpx.ConnectError:
+    except httpx.ConnectError, httpx.HTTPError:
         if settings.backend == "mlx":
             hint = (
                 "mlx_lm.server --model mlx-community/Qwen2.5-Coder-1.5B-Instruct-4bit --port 8008"
             )
         else:
             hint = "ollama serve  # then: ollama pull qwen2.5-coder:1.5b"
-        console.print(f"[red]Server not running. Start with:[/red]\n  {hint}")
+        console.print(f"[red]Server not reachable. Start with:[/red]\n  {hint}")
+
+    # Available provider tiers — the "show of power" moment.
+    console.print("\n[bold cyan]Available provider tiers:[/bold cyan]")
+    for p in PROVIDERS.values():
+        if p.privacy_level == PrivacyLevel.LOCAL:
+            marker = "[green]● local[/green]"
+            detail = p.base_url
+        elif p.privacy_level == PrivacyLevel.REMOTE_FREE:
+            has_key = bool(p.env_key_name and __import__("os").environ.get(p.env_key_name))
+            marker = (
+                "[yellow]● free remote[/yellow]" if has_key else "[dim]○ free remote (no key)[/dim]"
+            )
+            detail = f"requires {p.env_key_name}"
+        else:
+            has_key = bool(p.env_key_name and __import__("os").environ.get(p.env_key_name))
+            marker = "[magenta]● paid[/magenta]" if has_key else "[dim]○ paid (no key)[/dim]"
+            detail = f"requires {p.env_key_name}"
+        console.print(f"  {marker} [bold]{p.name}[/bold] — {detail}")
 
 
 @cli.command()

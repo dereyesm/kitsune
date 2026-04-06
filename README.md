@@ -106,14 +106,39 @@ Add your own: create a `.md` file in `src/kitsune/prompts/skills/` and map the e
 
 ## Platform Support
 
-| OS | Backend | Model Server | RAM (1.5B model) |
-|----|---------|-------------|-------------------|
-| **macOS** (Apple Silicon) | MLX | `mlx_lm.server` | ~1.4 GB total |
-| **Linux** | Ollama | `ollama serve` | ~1.4 GB total |
-| **Windows** | Ollama | `ollama serve` | ~1.4 GB total |
-| **Any** | Cloud API | OpenAI/Anthropic/etc. | ~0.2 GB (no local model) |
+| OS | Backend | Model Server |
+|----|---------|-------------|
+| **macOS** (Apple Silicon) | MLX | `mlx_lm.server` |
+| **Linux** | Ollama | `ollama serve` |
+| **Windows** | Ollama | `ollama serve` |
+| **Any** | Cloud API | OpenAI/Anthropic/etc. |
 
 Kitsune auto-detects your OS and configures the right backend.
+
+## Local Model Tiers
+
+Pick a tier based on your hardware. All tiers run **100% local** — your code never leaves your machine.
+
+| Tier | Model | Size | RAM | Best for |
+|------|-------|------|-----|----------|
+| `small` (default) | Qwen2.5-Coder-1.5B | 1.5B | ~1.4 GB | Fast explanations, low-end hardware |
+| `medium` | **Qwen3.5-4B** | 4B | ~5 GB | Balanced quality/speed, most laptops |
+| `large` | **Qwen3.5-9B** | 9B | ~10 GB | Best local quality, workstations |
+
+Switch tiers with one env var:
+
+```bash
+# macOS (MLX)
+export KITSUNE_MODEL_TIER=medium
+mlx_lm.server --model mlx-community/Qwen3.5-4B-Instruct-4bit --port 8008
+
+# Linux / Windows (Ollama)
+export KITSUNE_MODEL_TIER=medium
+ollama pull qwen3.5:4b
+ollama serve
+```
+
+Qwen3.5 is Apache 2.0 (commercial use OK, no attribution required).
 
 ## Configuration
 
@@ -123,7 +148,8 @@ All settings via environment variables (prefix `KITSUNE_`):
 |----------|----------------|-------------------|-------------|
 | `KITSUNE_BACKEND` | `mlx` | `ollama` | Backend type |
 | `KITSUNE_BASE_URL` | `http://localhost:8008/v1` | `http://localhost:11434/v1` | Server URL |
-| `KITSUNE_MODEL_NAME` | auto-detected | auto-detected | Model identifier |
+| `KITSUNE_MODEL_TIER` | `small` | `small` | Local model tier: `small`, `medium`, `large` |
+| `KITSUNE_MODEL_NAME` | auto-resolved | auto-resolved | Override model identifier (wins over tier) |
 | `KITSUNE_TEMPERATURE` | `0.1` | `0.1` | Generation temperature |
 
 ## MCP Server Mode
@@ -135,6 +161,95 @@ claude mcp add kitsune -- uv run --directory /path/to/kitsune python -m kitsune.
 ```
 
 This exposes 4 tools: `explain_code`, `ask_about_code`, `search_code`, `kitsune_status`.
+
+## Using Kitsune in VS Code
+
+Kitsune is an OpenAI-compatible local gateway + MCP server, so it plugs into any VS Code AI extension that speaks either protocol. No new extension needed.
+
+### Option A — Continue.dev + MCP (recommended)
+
+[Continue.dev](https://continue.dev) is an open-source AI coding assistant for VS Code that supports MCP. This is the path most aligned with the Tinkuy ecosystem (local-first, open source, democratizing access to AI).
+
+1. Install the [Continue.dev extension](https://marketplace.visualstudio.com/items?itemName=Continue.continue) from the VS Code marketplace.
+2. Add Kitsune as an MCP server in `~/.continue/config.yaml`:
+
+   ```yaml
+   mcpServers:
+     - name: kitsune
+       command: uv
+       args:
+         - run
+         - --directory
+         - /path/to/kitsune
+         - python
+         - -m
+         - kitsune.mcp_server
+   ```
+
+3. Start your local model server (`mlx_lm.server` on macOS, `ollama serve` on Linux/Windows).
+4. Open the Continue chat panel in VS Code. Kitsune's 4 tools (`explain_code`, `ask_about_code`, `search_code`, `kitsune_status`) now appear as callable tools in the chat.
+
+Ask anything like "explain what this file does" and Continue will invoke Kitsune's local model — your code never leaves the machine.
+
+### Option B — Continue.dev pointing directly at the model server (no Kitsune routing)
+
+If you want the raw local model without Kitsune's router / skills / RAG, configure Continue.dev to talk directly to your OpenAI-compatible server:
+
+```yaml
+# ~/.continue/config.yaml
+models:
+  - name: Qwen local (MLX)
+    provider: openai
+    model: mlx-community/Qwen2.5-Coder-1.5B-Instruct-4bit
+    apiBase: http://localhost:8008/v1
+    apiKey: not-needed
+```
+
+**Tradeoff**: simpler setup, but you lose Kitsune's multi-gate router, language skills, BM25 RAG, and escalation logic. Use this only if you want a raw chat UI.
+
+### Option C — VS Code tasks.json (no extension at all)
+
+Create `.vscode/tasks.json` to run Kitsune on the current file from the Command Palette:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Kitsune: Explain current file",
+      "type": "shell",
+      "command": "uv run kit explain ${file}",
+      "options": { "cwd": "/path/to/kitsune" },
+      "presentation": { "panel": "dedicated", "reveal": "always" }
+    },
+    {
+      "label": "Kitsune: Ask about current file",
+      "type": "shell",
+      "command": "uv run kit ask \"${input:question}\" -f ${file}",
+      "options": { "cwd": "/path/to/kitsune" },
+      "presentation": { "panel": "dedicated", "reveal": "always" }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "question",
+      "type": "promptString",
+      "description": "Question about the code"
+    }
+  ]
+}
+```
+
+Run with `Cmd+Shift+P` → `Tasks: Run Task` → pick a Kitsune task. Zero dependencies, works today, no chat UI — output lands in the integrated terminal.
+
+### Other MCP-compatible VS Code clients
+
+The same MCP server also works with:
+- **Cline** — Claude agent extension for VS Code
+- **GitHub Copilot Chat** (agent mode, MCP support)
+- **Cursor**, **Windsurf**, **Zed** — all support MCP servers
+
+Registration details differ per client; the Kitsune MCP command is the same as shown for Continue.dev above.
 
 ## Development
 

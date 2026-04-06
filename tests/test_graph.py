@@ -56,5 +56,10 @@ def test_fallback_flow_security():
     }
     result = graph.invoke(state)
     assert "security" in result["escalation_reason"]
-    assert "Claude" in result["response"]
     assert result["task_type"] == "fallback"
+    # The new multi-tier escalation message must advertise every escalation path
+    body = result["response"]
+    assert "Local tier up" in body
+    assert "Free remote" in body
+    assert "openrouter" in body
+    assert "anthropic" in body

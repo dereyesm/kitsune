@@ -1,5 +1,6 @@
 """Task-specific LangGraph nodes."""
 
+from kitsune.graph.router import suggest_tiers
 from kitsune.graph.state import KitsuneState
 from kitsune.inference.backend import invoke
 from kitsune.prompts.loader import build_system_prompt
@@ -29,6 +30,7 @@ def ask_node(state: KitsuneState) -> KitsuneState:
 def fallback_node(state: KitsuneState) -> KitsuneState:
     response = FALLBACK_MSG.format(
         reason=state.get("escalation_reason", "unknown"),
+        tiers=suggest_tiers(),
         prompt=state["user_input"],
         file_path=state.get("file_path", "<stdin>"),
     )
